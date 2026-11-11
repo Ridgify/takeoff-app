@@ -9,6 +9,8 @@
   const POLL_MS = 8000;
   const MAX_SET = 2 * 1024 * 1024 * 1024;   // 2 GB, far above any real set
   const KEY = 'takeoff.v1.';
+  // the branch whose copy of .github/workflows/takeoff.yml runs. master holds the first version, cloud-app the current one
+  const WORKFLOW_REF = 'cloud-app';
 
   const store = {
     get: (k, d) => { try { const v = localStorage.getItem(KEY + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
@@ -18,7 +20,7 @@
   const cfg = () => ({
     token: store.get('token', ''),
     repo: store.get('repo', 'Ridgify/takeoff'),
-    ref: store.get('ref', 'master'),
+    ref: store.get('ref', WORKFLOW_REF),
     engine: store.get('engine', 'master'),
     dry: store.get('dry', false),
   });
@@ -240,7 +242,7 @@
     document.getElementById('saveadv').onclick = () => {
       store.set('dry', document.getElementById('dry').checked);
       store.set('engine', document.getElementById('engine').value.trim() || 'master');
-      store.set('ref', document.getElementById('ref').value.trim() || 'master');
+      store.set('ref', document.getElementById('ref').value.trim() || WORKFLOW_REF);
       toast('Saved');
     };
     document.getElementById('forget').onclick = () => { store.del('token'); toast('Token removed'); location.hash = '#/'; route(); };
@@ -383,7 +385,7 @@
     let dry = !!c.dry;
     try { const j = await readFile(id, 'job.json'); dry = !!j.dry_run; } catch (e) { /* use the setting */ }
     await gh(repoPath() + '/actions/workflows/takeoff.yml/dispatches', {
-      method: 'POST', body: { ref: c.ref || 'master', inputs: { job_id: id, dry_run: dry ? 'true' : 'false', engine_ref: c.engine || 'master' } },
+      method: 'POST', body: { ref: c.ref || WORKFLOW_REF, inputs: { job_id: id, dry_run: dry ? 'true' : 'false', engine_ref: c.engine || 'master' } },
     });
   }
 
