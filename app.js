@@ -384,8 +384,8 @@
     return out;
   }
   const GROUPS = [
+    { key: 'delivered', label: 'Delivered', test: (j) => j.kind === 'delivery' || j.kind === 'follow-up', count: (j) => j.kind === 'delivery' },
     { key: 'all', label: 'All', test: (j) => j.kind !== 'dry-run' },
-    { key: 'delivered', label: 'Delivered', test: (j) => j.kind === 'delivery' || j.kind === 'follow-up' },
     { key: 'engine', label: 'Engine', test: (j) => j.kind === 'engine-test' || j.kind === 'cloud' },
     { key: 'dry', label: 'Dry runs', test: (j) => j.kind === 'dry-run' },
   ];
@@ -394,7 +394,8 @@
     if (j.state === 'running') return { cls: 'running', text: 'Running' };
     if (j.state === 'failed') return { cls: 'stopped', text: 'Stopped' };
     if (j.state === 'stopped') return { cls: 'stopped', text: 'Cancelled' };
-    if (j.kind === 'delivery' || j.kind === 'follow-up') return { cls: 'delivered', text: j.label || 'Delivered' };
+    if (j.kind === 'follow-up') return { cls: 'delivered followup', text: 'Follow-up, answered' };
+    if (j.kind === 'delivery') return { cls: 'delivered', text: j.label || 'Delivered' };
     if (j.kind === 'engine-test') return { cls: 'test', text: j.label || 'Engine test' };
     if (j.kind === 'dry-run') return { cls: 'test', text: 'Dry run, sample numbers' };
     if (j.send === true) return { cls: 'send', text: 'Ready, check says send' };
@@ -402,9 +403,12 @@
     return { cls: 'send', text: 'Ready' };
   }
   function stMark(s) { return `<span class="st ${s.cls}"><i aria-hidden="true"></i>${esc(s.text)}</span>`; }
-  function dimbar(v, max) {
+  // a short run with end ticks reads like a letter H, so below the cutoff it becomes a dot
+  function dimbar(v, max, cutoff) {
     if (!(v > 0) || !(max > 0)) return '';
-    return `<span class="dimbar" aria-hidden="true"><i data-s="width:${Math.max(4, 100 * v / max).toFixed(1)}%"></i></span>`;
+    const pct = 100 * v / max;
+    if (pct < (cutoff || 7)) return '<span class="dimbar dot" aria-hidden="true"><i></i></span>';
+    return `<span class="dimbar" aria-hidden="true"><i data-s="width:${pct.toFixed(1)}%"></i></span>`;
   }
   function libRow(j, max) {
     const st = statusOf(j);
@@ -413,7 +417,7 @@
       <span class="r-date">${esc(fmtDay(j.date, true))}</span>
       <span class="r-main"><span class="r-name">${esc(j.name)}</span>
         <span class="r-meta"><span class="r-day-m">${esc(fmtDay(j.date))}</span>${j.location ? `<span>${esc(j.location)}</span>` : ''}${stMark(st)}</span></span>
-      <span class="r-count">${hasCount ? `<span><b>${fmtNum(j.count)}</b> <small>${esc(j.countLabel)}</small></span>${j.countLabel === 'windows' ? dimbar(j.count, max) : ''}` : `<span class="none">${j.state === 'done' ? 'No count' : 'Counting…'}</span>`}</span>
+      <span class="r-count">${hasCount ? `<span><b>${fmtNum(j.count)}</b> <small>${esc(j.countLabel)}</small></span>${j.countLabel === 'windows' ? dimbar(j.count, max, 30) : ''}` : `<span class="none">${j.state === 'queued' || j.state === 'running' ? 'Counting…' : 'No result'}</span>`}</span>
       <span class="r-st">${stMark(st)}</span>
     </a></li>`;
   }
@@ -454,13 +458,14 @@
     }
     if (!$('list')) return;
     const delivered = jobs.filter((j) => j.kind === 'delivery');
+    const followUps = jobs.filter((j) => j.kind === 'follow-up').length;
     const windows = delivered.reduce((a, j) => a + (j.countLabel === 'windows' && typeof j.count === 'number' ? j.count : 0), 0);
     const first = delivered.map((j) => j.date).filter(Boolean).sort()[0];
     $('tally').replaceChildren(h(`
-      <div><b>${fmtNum(delivered.length)}</b><span>takeoffs delivered</span></div>
+      <div><b>${fmtNum(delivered.length)}</b><span>takeoffs delivered${followUps ? `, plus ${plural(followUps, 'follow-up')}` : ''}</span></div>
       <div><b>${fmtNum(windows)}</b><span>windows counted on them</span></div>
       ${first ? `<div><b>${esc(toDate(first).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }))}</b><span>first delivery</span></div>` : ''}`));
-    GROUPS.forEach((g) => { const el = document.querySelector('[data-n="' + g.key + '"]'); if (el) el.textContent = jobs.filter(g.test).length; });
+    GROUPS.forEach((g) => { const el = document.querySelector('[data-n="' + g.key + '"]'); if (el) el.textContent = jobs.filter(g.count || g.test).length; });
 
     let cur = group;
     function draw() {
@@ -471,7 +476,7 @@
         const none = !jobs.length;
         $('list').replaceChildren(h(none
           ? `<div class="empty"><h2>No takeoffs yet</h2><p>Start the first one with a drawing set. It shows up here while it runs and stays here when it is done.</p><a class="btn primary" href="#/new">New takeoff</a></div>`
-          : `<div class="empty"><h2>Nothing matches ${needle ? '“' + esc(needle) + '”' : 'this view'}</h2><p>Try a project name or a city, or show all takeoffs.</p><button class="btn" id="clear" type="button">Show all takeoffs</button></div>`));
+          : `<div class="empty"><h2>Nothing matches ${needle ? '“' + esc(needle) + '”' : 'this view'}</h2><p>Try a project name or a city.</p><button class="btn" id="clear" type="button">Clear the search</button></div>`));
         const c = $('clear');
         if (c) c.onclick = () => { $('q').value = ''; cur = GROUPS[0]; sync(); draw(); };
         return;
@@ -492,7 +497,7 @@
       document.querySelectorAll('#seg button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.f === cur.key)));
       const p = new URLSearchParams();
       if ($('q').value.trim()) p.set('q', $('q').value.trim());
-      if (cur.key !== 'all') p.set('f', cur.key);
+      if (cur.key !== 'delivered') p.set('f', cur.key);
       const s = p.toString();
       history.replaceState(null, '', '#/' + (s ? '?' + s : ''));
     }
@@ -524,7 +529,8 @@
               </label>
             </div>
             <label class="field"><span>Job name</span><input class="input" id="name" type="text" maxlength="80" placeholder="Harbor Point Apartments" autocomplete="off"></label>
-            <label class="field"><span>Scope note</span><textarea class="input" id="note" maxlength="1000" placeholder="Anything about scope, like vinyl windows only or leave out the clubhouse…"></textarea><em>Optional. The count follows it.</em></label>
+            <label class="field"><span>What Greg asked for</span><textarea class="input" id="scope" maxlength="1000" required placeholder="Paste Greg's line, e.g. &quot;Please quote the vinyl window types only.&quot;"></textarea><em>Required. The engine reads it as the scope for the count.</em></label>
+            <label class="field"><span>Other notes</span><textarea class="input" id="note" maxlength="1000" placeholder="Anything else, like leave out the clubhouse…"></textarea><em>Optional.</em></label>
             <div class="mt"><button class="btn primary block" id="go" type="button">Start takeoff</button></div>
             <div id="up" hidden class="scale">
               <div class="scale-bar live"><i id="upbar" data-s="width:0%"></i></div>
@@ -566,11 +572,12 @@
     $go.onclick = () => {
       if (!file) { $('err').innerHTML = '<div class="note warn">Add the drawing set first.</div>'; return; }
       if (!$name.value.trim()) { $('err').innerHTML = '<div class="note warn">Give the job a name.</div>'; $name.focus(); return; }
-      startJob(file, $name.value.trim(), $('note').value.trim());
+      if (!$('scope').value.trim()) { $('err').innerHTML = '<div class="note warn">Paste what Greg asked for. The count follows it.</div>'; $('scope').focus(); return; }
+      startJob(file, $name.value.trim(), $('note').value.trim(), $('scope').value.trim());
     };
   }
 
-  async function startJob(file, name, note) {
+  async function startJob(file, name, note, scope) {
     const c = cfg();
     const id = newId(name);
     const $bar = $('upbar');
@@ -621,7 +628,7 @@
       $txt.textContent = 'Starting the cloud run';
       const parts = shas.map((_, i) => 'input/part-' + String(i + 1).padStart(4, '0'));
       const now = new Date().toISOString();
-      const job = { id, name, note, file_name: file.name, size: file.size, parts, created_at: now, dry_run: !!c.dry, engine_ref: c.engine };
+      const job = { id, name, note, scope_note: scope, file_name: file.name, size: file.size, parts, created_at: now, dry_run: !!c.dry, engine_ref: c.engine };
       const status = { id, name, state: 'queued', step: 'setup', message: 'Waiting for a cloud computer', percent: 1, started_at: now, updated_at: now, dry_run: !!c.dry, steps: [] };
       const tree = parts.map((p, i) => ({ path: p, mode: '100644', type: 'blob', sha: shas[i] }));
       tree.push({ path: 'job.json', mode: '100644', type: 'blob', content: JSON.stringify(job, null, 1) });
@@ -862,6 +869,7 @@
         <div class="hero">
           <div>
             <div class="total">${prim.n != null ? `<b>${fmtNum(prim.n)}</b><span>${esc(prim.label)}${r.primary && r.primary.note ? `<em>${esc(r.primary.note)}</em>` : ''}</span>` : '<span>No count in the delivered files</span>'}</div>
+            ${r.scope_note ? `<p class="scope"><span>What Greg asked for</span>${esc(r.scope_note)}</p>` : ''}
             ${dimString(dimSrc[1], dimSrc[0])}
           </div>
           ${side.length ? `<div class="sidecounts">${side.map(([n, l], i) => `<div class="${side.length % 2 && i === side.length - 1 && side.length > 1 ? 'wide' : ''}"><b>${fmtNum(n)}</b><span>${esc(l)}</span></div>`).join('')}</div>` : ''}
@@ -871,8 +879,8 @@
         ${strip('deck')}
         ${strip('plans')}
         ${hasTypes || hasBldg ? `<div class="sec two">
-          ${hasTypes ? `<div><div class="sec-head"><h2 class="h2">By type</h2></div>${countTable(t.by_type, 'Type', 'All ' + prim.label, { keepOrder: true })}${srcLine('by_type')}
-            ${hasDoors ? `<div class="sec" data-s="margin-top:28px"><div class="sec-head"><h2 class="h2">Patio doors by type</h2></div>${countTable(t.patio_doors_by_type, 'Type', 'All patio doors', { keepOrder: true })}</div>` : ''}</div>` : ''}
+          ${hasTypes ? `<div><div class="sec-head"><h2 class="h2">By type</h2></div>${countTable(t.by_type, 'Type', 'All ' + prim.label)}${srcLine('by_type')}
+            ${hasDoors ? `<div class="sec" data-s="margin-top:28px"><div class="sec-head"><h2 class="h2">Patio doors by type</h2></div>${countTable(t.patio_doors_by_type, 'Type', 'All patio doors')}</div>` : ''}</div>` : ''}
           ${hasBldg ? `<div><div class="sec-head"><h2 class="h2">${esc(bLabel)}</h2></div>${countTable(t.by_building, bLabel.replace(/^By /, '').replace(/^./, (c) => c.toUpperCase()).replace(/,.*$/, ''), 'All ' + prim.label, { keepOrder: true })}${srcLine('by_building')}</div>` : ''}
         </div>` : ''}
         ${r.flags && r.flags.top && r.flags.top.length ? `<div class="sec"><div class="sec-head"><h2 class="h2">Flags to look at first</h2><small class="faint">${plural(r.flags.total, 'flag')} in all</small></div>
@@ -1198,6 +1206,7 @@
     mounted.openedByClick = false;
     layout();
     go(idx, false);
+    requestAnimationFrame(() => { layout(); place(false); });
     el.tabIndex = -1;
     el.focus({ preventScroll: true });
   }

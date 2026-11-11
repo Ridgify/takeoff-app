@@ -198,7 +198,8 @@ textarea.input { min-height: 92px; resize: vertical; }
 
 .month { margin-top: 34px; }
 .colhead + .month { margin-top: 6px; }
-.r-meta .st.delivered { display: none; }
+.r-meta .st.delivered:not(.followup) { display: none; }
+.st.followup i { background: none; }
 .month h2 { font-size: 15px; font-weight: 600; color: var(--ink-2); padding-bottom: 8px; border-bottom: 1px solid var(--ink); display: flex; justify-content: space-between; }
 .month h2 span { font-weight: 450; color: var(--ink-3); font-variant-numeric: tabular-nums; }
 .rows { list-style: none; margin: 0; padding: 0; }
@@ -219,6 +220,9 @@ textarea.input { min-height: 92px; resize: vertical; }
 .r-st { display: none; }
 .dimbar { display: block; position: relative; height: 7px; width: 100%; min-width: 34px; }
 .t .dimbar i { right: auto; left: 0; }
+.r-count .dimbar.dot i { right: 0; left: auto; }
+.dimbar.dot i { width: 5px; height: 5px; top: 1px; border-radius: 50%; }
+.dimbar.dot i::before, .dimbar.dot i::after { display: none; }
 .dimbar i { position: absolute; right: 0; top: 3px; height: 1px; background: var(--ink); }
 .dimbar i::before, .dimbar i::after { content: ""; position: absolute; top: -3px; width: 1px; height: 7px; background: var(--ink); }
 .dimbar i::before { left: 0; } .dimbar i::after { right: 0; }
@@ -266,6 +270,8 @@ textarea.input { min-height: 92px; resize: vertical; }
 .total b { font-size: clamp(96px, 30vw, 196px); line-height: .8; font-weight: 640; font-stretch: 62%; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
 .total span { font-size: 19px; font-weight: 560; padding-bottom: 6px; }
 .total span em { display: block; font-style: normal; font-weight: 450; font-size: 14px; color: var(--ink-3); }
+.scope { margin-top: 18px; max-width: 62ch; font-size: 15.5px; border-left: 2px solid var(--red); padding-left: 12px; }
+.scope span { display: block; font-size: 12.5px; color: var(--ink-3); }
 .sidecounts { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid var(--ink); }
 .sidecounts div { padding: 12px 0 2px; }
 .sidecounts div:nth-child(2n) { padding-left: 16px; border-left: 1px solid var(--rule); }
