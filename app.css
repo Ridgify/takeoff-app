@@ -155,7 +155,7 @@ input:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 4px
 .verdict .vt { font-size: 22px; font-weight: 750; letter-spacing: -.01em; margin-bottom: 4px; }
 .verdict ul { margin: 10px 0 0; padding-left: 18px; color: var(--muted); line-height: 1.5; }
 
-.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 18px; }
+.stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 18px; }
 .stat { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; }
 .stat .n { font-size: 38px; font-weight: 750; letter-spacing: -.03em; font-variant-numeric: tabular-nums; line-height: 1.05; }
 .stat .l { color: var(--muted); font-size: 13.5px; font-weight: 600; margin-top: 6px; }
@@ -167,10 +167,10 @@ input:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 4px
 .brow .t i { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, #7cc4ff, #7d7bff); }
 .brow .v { text-align: right; font-variant-numeric: tabular-nums; font-weight: 650; }
 
-.two { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; }
 .two > .card { margin-bottom: 0; }
 
-.files { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.files { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
 .file { display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: 12px; background: var(--card2); border: 1px solid var(--line); cursor: pointer; text-align: left; transition: border-color .15s, background .15s; width: 100%; }
 .file:hover { border-color: #3a4560; background: #1b2130; }
 .file .fi { width: 38px; height: 38px; border-radius: 10px; flex: none; display: grid; place-items: center; font-family: var(--mono); font-size: 10.5px; font-weight: 800; }
@@ -179,7 +179,7 @@ input:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 4px
 .file .fi.pptx { background: rgba(255, 181, 71, .12); color: var(--warn); }
 .file .fi.other { background: rgba(124, 196, 255, .12); color: var(--accent); }
 .file .grow { display: flex; flex-direction: column; }
-.file .fl { display: block; font-weight: 650; }
+.file .fl { display: block; font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .file .fs { display: block; color: var(--muted); font-size: 12.5px; margin-top: 2px; }
 .file.busy { opacity: .7; pointer-events: none; }
 
@@ -190,12 +190,12 @@ input:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 4px
 .sev.changes_count { background: rgba(255, 107, 107, .12); color: #ff8a8a; }
 .sev.changes_type { background: rgba(255, 181, 71, .12); color: var(--warn); }
 
-.jobs { display: grid; gap: 10px; }
-.job { display: flex; align-items: center; gap: 14px; padding: 16px 18px; border-radius: 14px; background: var(--card); border: 1px solid var(--line); color: var(--text); transition: border-color .15s, background .15s; }
+.jobs { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
+.job { min-width: 0; display: flex; align-items: center; gap: 14px; padding: 16px 18px; border-radius: 14px; background: var(--card); border: 1px solid var(--line); color: var(--text); transition: border-color .15s, background .15s; }
 .job:hover { border-color: #3a4560; background: #151a24; }
 .job .jn { font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .job .jm { color: var(--muted); font-size: 13px; margin-top: 3px; }
-.job .jw { text-align: right; font-variant-numeric: tabular-nums; }
+.job .jw { flex: none; text-align: right; font-variant-numeric: tabular-nums; }
 .job .jw b { display: block; font-size: 20px; letter-spacing: -.02em; }
 .job .jw span { font-size: 12px; color: var(--muted); }
 
@@ -226,7 +226,7 @@ input:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 4px
   .stat { padding: 14px 12px; }
   .stat .n { font-size: 28px; }
   .stat .l { font-size: 12px; }
-  .two { grid-template-columns: 1fr; }
-  .files { grid-template-columns: 1fr; }
+  .two { grid-template-columns: minmax(0, 1fr); }
+  .files { grid-template-columns: minmax(0, 1fr); }
   .nav a { padding: 8px 10px; }
 }
