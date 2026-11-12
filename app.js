@@ -21,7 +21,8 @@
     token: store.get('token', ''),
     repo: store.get('repo', 'Ridgify/takeoff'),
     ref: store.get('ref', WORKFLOW_REF),
-    engine: store.get('engine', 'master'),
+    // engine v3 is the default (Nov 11, 2026). A saved 'master' was the old default, not a choice, so it moves to v3
+    engine: ((e) => (e === 'master' ? 'engine-v3' : e))(store.get('engine', 'engine-v3')),
     dry: store.get('dry', false),
   });
 
@@ -656,7 +657,7 @@
     let dry = !!c.dry;
     try { const j = await readFile(id, 'job.json'); dry = !!j.dry_run; } catch (e) { /* use the setting */ }
     await gh(repoPath() + '/actions/workflows/takeoff.yml/dispatches', {
-      method: 'POST', body: { ref: c.ref || WORKFLOW_REF, inputs: { job_id: id, dry_run: dry ? 'true' : 'false', engine_ref: c.engine || 'master' } },
+      method: 'POST', body: { ref: c.ref || WORKFLOW_REF, inputs: { job_id: id, dry_run: dry ? 'true' : 'false', engine_ref: c.engine || 'engine-v3', engine_version: /v3/.test(c.engine || 'engine-v3') ? 'v3' : 'v2' } },
     });
   }
 
