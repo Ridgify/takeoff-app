@@ -446,3 +446,14 @@ table.t { width: 100%; border-collapse: collapse; margin-top: 4px; }
 }
 
 @media (min-width: 760px) { .seg { display: inline-flex; flex: 0 0 auto; } .seg button { flex: 0 0 auto; padding: 0 12px; } }
+
+/* blind recount of past deliveries */
+.rc { display: inline-flex; align-items: center; font-size: 13px; color: var(--ink-3); white-space: nowrap; margin-left: 10px; }
+.r-st .rc { display: flex; margin: 4px 0 0; }
+.rc.match { color: var(--green); }
+.rc.over, .rc.under { color: var(--red-ink); font-weight: 600; }
+.rc.open { color: var(--amber); }
+.note.recount { margin-top: 18px; }
+.note.recount h2 { font-size: 18px; margin: 0 0 6px; }
+.note.recount p { margin: 6px 0 0; line-height: 1.45; }
+.note.recount .rcn b { font-size: 22px; }

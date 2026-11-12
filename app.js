@@ -353,6 +353,7 @@
       patio: sum.patio_doors,
       send: sum.send,
       label: s.status_label || '',
+      recount: sum.recount || null,
     };
   }
   async function listJobs() {
@@ -403,6 +404,12 @@
     if (j.send === false) return { cls: 'hold', text: 'Ready, check says hold' };
     return { cls: 'send', text: 'Ready' };
   }
+  // the blind recount of a past delivery (Nov 2026 audit): match, over, under, open or not checked
+  function rcMark(j) {
+    const r = j.recount;
+    if (!r || !r.short) return '';
+    return `<span class="rc ${esc(r.result || 'none')}">Recount: ${esc(r.short)}</span>`;
+  }
   function stMark(s) { return `<span class="st ${s.cls}"><i aria-hidden="true"></i>${esc(s.text)}</span>`; }
   // a short run with end ticks reads like a letter H, so below the cutoff it becomes a dot
   function dimbar(v, max, cutoff) {
@@ -417,9 +424,9 @@
     return `<li><a class="row-a" href="#/job/${esc(j.id)}">
       <span class="r-date">${esc(fmtDay(j.date, true))}</span>
       <span class="r-main"><span class="r-name">${esc(j.name)}</span>
-        <span class="r-meta"><span class="r-day-m">${esc(fmtDay(j.date))}</span>${j.location ? `<span>${esc(j.location)}</span>` : ''}${stMark(st)}</span></span>
+        <span class="r-meta"><span class="r-day-m">${esc(fmtDay(j.date))}</span>${j.location ? `<span>${esc(j.location)}</span>` : ''}${stMark(st)}${rcMark(j)}</span></span>
       <span class="r-count">${hasCount ? `<span><b>${fmtNum(j.count)}</b> <small>${esc(j.countLabel)}</small></span>${j.countLabel === 'windows' ? dimbar(j.count, max, 30) : ''}` : `<span class="none">${j.state === 'queued' || j.state === 'running' ? 'Counting…' : 'No result'}</span>`}</span>
-      <span class="r-st">${stMark(st)}</span>
+      <span class="r-st">${stMark(st)}${rcMark(j)}</span>
     </a></li>`;
   }
   function skeletonRows(n) {
@@ -840,6 +847,16 @@
         ${(r.notes || []).length ? `<ul>${r.notes.map((p) => `<li>${esc(p)}</li>`).join('')}</ul>` : ''}</div>`;
     } else if (kind === 'cloud') {
       verdictHtml = `<div class="verdict hold"><span class="mark">${I.bang}</span><h2>No verdict yet</h2><p>The independent check did not write one. Read the review summary before sending.</p></div>`;
+    }
+    const rc = r.recount;
+    if (rc && rc.headline) {
+      const cls = rc.result === 'match' ? 'ok' : (rc.result === 'over' || rc.result === 'under') ? 'bad' : 'warn';
+      verdictHtml += `<div class="note ${cls} recount"><h2>Blind recount: ${esc(rc.short)}</h2>
+        <p>${esc(rc.headline)}</p>
+        ${rc.count != null ? `<p class="rcn"><b>${rc.approx ? 'About ' : ''}${fmtNum(rc.count)}</b> ${esc(prim.label)} on the recount, ${fmtNum(prim.n)} delivered</p>` : ''}
+        ${rc.checked ? `<p><b>Checked:</b> ${esc(rc.checked)}</p>` : ''}
+        ${rc.not_checked ? `<p><b>Not checked:</b> ${esc(rc.not_checked)}</p>` : ''}
+        ${rc.proof ? `<p class="src">Proof: ${esc(rc.proof)}</p>` : ''}</div>`;
     }
     const viewers = r.viewers || {};
     const strip = (k) => {
