@@ -24,6 +24,7 @@
     // engine v3 is the default (Nov 11, 2026). A saved 'master' was the old default, not a choice, so it moves to v3
     engine: ((e) => (e === 'master' ? 'engine-v3' : e))(store.get('engine', 'engine-v3')),
     dry: store.get('dry', false),
+    showrc: store.get('showrc', false),
   });
 
   const $app = document.getElementById('app');
@@ -310,6 +311,7 @@
         <div class="block">
           <h2>Runs</h2>
           <label class="switch" for="dry"><span><span data-s="font-weight:600">Dry run</span><br><span class="small faint">Runs every step except the Claude calls and saves sample files. For testing the pipeline.</span></span><input type="checkbox" id="dry" ${c.dry ? 'checked' : ''}></label>
+          <label class="switch" for="showrc"><span><span data-s="font-weight:600">Show recounts</span><br><span class="small faint">Shows the November blind recount on past jobs, on this device only.</span></span><input type="checkbox" id="showrc" ${c.showrc ? 'checked' : ''}></label>
           <label class="field"><span>Engine branch</span><input class="input" id="engine" type="text" autocapitalize="off" spellcheck="false" value="${esc(c.engine)}"></label>
           <label class="field"><span>Workflow branch</span><input class="input" id="ref" type="text" autocapitalize="off" spellcheck="false" value="${esc(c.ref)}"></label>
           <div class="mt"><button class="btn" id="saveadv" type="button">Save run settings</button></div>
@@ -323,6 +325,8 @@
     wireTokenForm(() => {});
     $('saveadv').onclick = () => {
       store.set('dry', $('dry').checked);
+      if (store.get('showrc', false) !== $('showrc').checked) store.del('jobs2');
+      store.set('showrc', $('showrc').checked);
       store.set('engine', $('engine').value.trim() || 'master');
       store.set('ref', $('ref').value.trim() || WORKFLOW_REF);
       toast('Run settings saved');
@@ -353,7 +357,7 @@
       patio: sum.patio_doors,
       send: sum.send,
       label: s.status_label || '',
-      recount: sum.recount || null,
+      recount: cfg().showrc ? (sum.recount || null) : null,
     };
   }
   async function listJobs() {
@@ -805,6 +809,12 @@
       return;
     }
     if (!$('job') || mounted.id !== id) return;
+    if (!cfg().showrc && r.recount) {
+      // recounts stay off unless this device turns them on in Settings: no badge, no corrected files, no corrected plans
+      const hadCorrected = (r.files || []).some((f) => /^corrected/.test(f.key || ''));
+      r = Object.assign({}, r, { recount: null, files: (r.files || []).filter((f) => !/^corrected|^old_markup/.test(f.key || '')) });
+      if (hadCorrected) { r.viewers = Object.assign({}, r.viewers); delete r.viewers.plans; }
+    }
     mounted.result = r;
     const name = r.name || s.name || id;
     setTitle(name);
