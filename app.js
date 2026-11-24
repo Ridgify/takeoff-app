@@ -811,9 +811,7 @@
     if (!$('job') || mounted.id !== id) return;
     if (!cfg().showrc && r.recount) {
       // recounts stay off unless this device turns them on in Settings: no badge, no corrected files, no corrected plans
-      const hadCorrected = (r.files || []).some((f) => /^corrected/.test(f.key || ''));
-      r = Object.assign({}, r, { recount: null, files: (r.files || []).filter((f) => !/^corrected|^old_markup/.test(f.key || '')) });
-      if (hadCorrected) { r.viewers = Object.assign({}, r.viewers); delete r.viewers.plans; }
+      r = Object.assign({}, r, { recount: null, files: (r.files || []).filter((f) => !/^corrected/.test(f.key || '')) });
     }
     mounted.result = r;
     const name = r.name || s.name || id;
@@ -916,7 +914,10 @@
         ${r.audit && r.audit.areas ? `<p class="src">Blind recount: ${fmtNum(r.audit.agree)} of ${fmtNum(r.audit.areas)} random areas agree.</p>` : ''}
         <div class="sec">
           <div class="sec-head"><h2 class="h2">Files</h2><small class="faint">${plural((r.files || []).length, 'file')}</small></div>
-          ${(r.files || []).length ? `<ul class="files">${r.files.map((f, i) => `<li><button class="file" type="button" data-i="${i}">
+          ${(r.files || []).length ? `<ul class="files">${r.files.map((f, i) => fileFormat(f.name) === 'pdf' ? `<li class="haspdf"><button class="file pdfview" type="button" data-i="${i}">
+            <span class="fmt pdf">PDF</span>
+            <span><span class="fl">${esc(f.label)}</span><span class="fs">${esc(f.name)}, ${fmtBytes(f.size)}</span></span>
+            <span class="viewtag">View</span></button><button class="dl" type="button" data-i="${i}" aria-label="Download ${esc(f.name)}" title="Download">${I.down}</button></li>` : `<li><button class="file" type="button" data-i="${i}">
             <span class="fmt ${fileFormat(f.name)}">${fileFormat(f.name).toUpperCase()}</span>
             <span><span class="fl">${esc(f.label)}</span><span class="fs">${esc(f.name)}, ${fmtBytes(f.size)}</span></span>
             <span class="go">${I.down}<span class="sr">Download</span></span></button></li>`).join('')}</ul>` : '<p class="muted mt">No files were saved for this job.</p>'}
@@ -925,7 +926,9 @@
         ${r.note ? `<p class="src">Scope note: ${esc(r.note)}</p>` : ''}
         ${s.run_url ? `<div class="mt"><a class="btn quiet sm" href="${esc(s.run_url)}" target="_blank" rel="noopener">Open the run on GitHub ${I.ext}</a></div>` : ''}
       </div>`));
-    box.querySelectorAll('.file').forEach((b) => { b.onclick = () => download(id, r.files[+b.dataset.i], b); });
+    box.querySelectorAll('.file:not(.pdfview)').forEach((b) => { b.onclick = () => download(id, r.files[+b.dataset.i], b); });
+    box.querySelectorAll('.file.pdfview').forEach((b) => { b.onclick = () => viewPdf(id, r.files[+b.dataset.i], b); });
+    box.querySelectorAll('.files .dl').forEach((b) => { b.onclick = () => download(id, r.files[+b.dataset.i], b.parentNode.querySelector('.file')); });
     fitDims(box);
     if (window.ResizeObserver) { const ro = new ResizeObserver(() => fitDims(box)); box.querySelectorAll('.dimline').forEach((d) => ro.observe(d)); }
     lazyThumbs(id, box);
@@ -942,6 +945,61 @@
     // the first few of each strip load right away, the rest as they come near the screen
     const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { io.unobserve(e.target); load(e.target); } }), { rootMargin: '600px 600px' });
     imgs.forEach((i) => { if (Array.from(i.closest('.strip').children).indexOf(i.closest('.thumb')) < 3) load(i); else io.observe(i); });
+  }
+  async function fileBlob(id, f, label) {
+    if (f.parts && f.parts.length) {
+      const pieces = [];
+      for (let i = 0; i < f.parts.length; i++) {
+        if (label) label.textContent = 'Loading part ' + (i + 1) + ' of ' + f.parts.length + '…';
+        pieces.push(await readFile(id, f.parts[i], 'blob'));
+      }
+      return new Blob(pieces);
+    }
+    return readFile(id, f.path, 'blob');
+  }
+  const pdfUrls = new Map();
+  let PV = null;
+  function closePdf() {
+    if (!PV) return;
+    PV.remove(); PV = null;
+    document.documentElement.style.overflow = '';
+    document.removeEventListener('keydown', pdfKey);
+  }
+  function pdfKey(e) { if (e.key === 'Escape') closePdf(); }
+  async function viewPdf(id, f, el) {
+    if (el.getAttribute('aria-busy') === 'true') return;
+    const phone = window.matchMedia && window.matchMedia('(pointer: coarse)').matches && window.innerWidth < 900;
+    // a phone shows the PDF in its own viewer, the tab has to open inside the tap
+    const win = phone ? window.open('', '_blank') : null;
+    el.setAttribute('aria-busy', 'true');
+    const label = el.querySelector('.fs');
+    const old = label.textContent;
+    label.textContent = 'Opening…';
+    try {
+      const k = id + '|' + (f.path || f.name);
+      if (!pdfUrls.has(k)) {
+        const blob = await fileBlob(id, f, label);
+        pdfUrls.set(k, URL.createObjectURL(new Blob([blob], { type: 'application/pdf' })));
+      }
+      const url = pdfUrls.get(k);
+      label.textContent = old;
+      if (win) { win.location.href = url; return; }
+      if (phone) { location.href = url; return; }
+      closePdf();
+      PV = h(`<div class="pdfv" role="dialog" aria-modal="true" aria-label="${esc(f.label)}">
+        <div class="pdfbar"><span class="pdft">${esc(f.label)}<small>${esc(f.name)}</small></span>
+          <span class="pdfbtns"><a class="btn quiet sm" href="${url}" target="_blank" rel="noopener">New tab ${I.ext}</a>
+          <button class="btn sm" type="button" id="pdfx">Close</button></span></div>
+        <iframe class="pdff" src="${url}#view=FitH" title="${esc(f.label)}"></iframe></div>`).firstElementChild;
+      document.body.appendChild(PV);
+      document.documentElement.style.overflow = 'hidden';
+      PV.querySelector('#pdfx').onclick = closePdf;
+      document.addEventListener('keydown', pdfKey);
+    } catch (e) {
+      label.textContent = old;
+      if (win) win.close();
+      toast(e.message || 'The PDF did not open. Try again.');
+    } finally { el.removeAttribute('aria-busy'); }
   }
   async function download(id, f, el) {
     if (el.getAttribute('aria-busy') === 'true') return;
